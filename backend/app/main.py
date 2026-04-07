@@ -3,7 +3,7 @@ from backend.app.api.v1 import upload
 
 app = FastAPI(title="ClauseIQ API")
 
-app.include_router(upload.router, prefix="/api/v1")
+app.include_router(upload.router, prefix="/api/v1", tags=["documents"])
 
 
 @app.get("/")
