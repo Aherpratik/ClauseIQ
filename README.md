@@ -28,10 +28,18 @@ POST /api/v1/upload
 
 GET /api/v1/extract/{document_id}
 
+## 🧩 Chunking Engine
+
+Implemented a smart chunking pipeline that:
+- Splits documents into overlapping chunks
+- Preserves page context
+- Avoids breaking sentences abruptly
+- Stores metadata (page number, offsets, chunk length)
+
+This prepares documents for downstream embedding and semantic retrieval.
 
 ##  What's Next
 
-- Chunking pipeline
 - Vector embeddings
 - Semantic search
 - Clause detection engine
