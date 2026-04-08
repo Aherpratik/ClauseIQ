@@ -8,6 +8,7 @@ from backend.app.models.responses import (
     ExtractedDocumentResponse,
 )
 from backend.app.services.pdf_services import PDFService
+from backend.app.services.chunk_service import ChunkService
 
 router = APIRouter()
 
@@ -54,6 +55,13 @@ def extract_document(document_id: str):
     try:
         extracted = PDFService.extract_text(str(file_path))
 
+        chunks = ChunkService.chunk_pages(
+            document_id=document_id,
+            pages=extracted["pages"],
+            chunk_size=700,
+            overlap=120,
+        )
+
         return ExtractedDocumentResponse(
             document_id=document_id,
             filename=extracted["filename"],
@@ -61,6 +69,7 @@ def extract_document(document_id: str):
             full_text=extracted["full_text"],
             pages=extracted["pages"],
             metadata=extracted["metadata"],
+            chunks=chunks,
         )
 
     except Exception as e:

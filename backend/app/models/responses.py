@@ -15,6 +15,16 @@ class PageText(BaseModel):
     text: str
 
 
+class ChunkResponse(BaseModel):
+    chunk_id: str
+    document_id: str
+    page_number: int
+    text: str
+    start_char: int
+    end_char: int
+    length: int
+
+
 class ExtractedDocumentResponse(BaseModel):
     document_id: str
     filename: str
@@ -22,3 +32,4 @@ class ExtractedDocumentResponse(BaseModel):
     full_text: str
     pages: List[PageText]
     metadata: Dict[str, str]
+    chunks: List[ChunkResponse]
