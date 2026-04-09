@@ -33,3 +33,16 @@ class ExtractedDocumentResponse(BaseModel):
     pages: List[PageText]
     metadata: Dict[str, str]
     chunks: List[ChunkResponse]
+
+
+class IndexDocumentResponse(BaseModel):
+    document_id: str
+    num_chunks: int
+    embedding_dimension: int
+    index_path: str
+    metadata_path: str
+
+
+class SearchResultChunk(BaseModel):
+    score: float
+    chunk: ChunkResponse

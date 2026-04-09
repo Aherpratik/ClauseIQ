@@ -9,6 +9,9 @@ from backend.app.models.responses import (
 )
 from backend.app.services.pdf_services import PDFService
 from backend.app.services.chunk_service import ChunkService
+from backend.app.services.embedding_service import EmbeddingService
+from backend.app.services.vector_service import VectorService
+
 
 router = APIRouter()
 
@@ -62,6 +65,15 @@ def extract_document(document_id: str):
             overlap=120,
         )
 
+        chunk_texts = [chunk["text"] for chunk in chunks]
+        embeddings = EmbeddingService.embed_texts(chunk_texts)
+
+        VectorService.save_document_index(
+            document_id=document_id,
+            embeddings=embeddings,
+            chunks=chunks,
+        )
+
         return ExtractedDocumentResponse(
             document_id=document_id,
             filename=extracted["filename"],
@@ -74,3 +86,29 @@ def extract_document(document_id: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Extraction Failed: {str(e)}")
+
+
+@router.get("/search/{document_id}")
+def search_document(document_id: str, query: str, top_k: int = 5):
+    if not query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty.")
+
+    if top_k < 1 or top_k > 10:
+        raise HTTPException(status_code=400, detail="Top_k must be between 1 and 10.")
+    try:
+        query_embedding = EmbeddingService.embed_query(query)
+        results = VectorService.search_document(
+            document_id=document_id,
+            query_embedding=query_embedding,
+            top_k=top_k,
+        )
+        return {
+            "document_id": document_id,
+            "query": query,
+            "top_k": top_k,
+            "results": results,
+        }
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
