@@ -46,3 +46,21 @@ class IndexDocumentResponse(BaseModel):
 class SearchResultChunk(BaseModel):
     score: float
     chunk: ChunkResponse
+
+
+class QARequest(BaseModel):
+    question: str
+    top_k: int = 5
+
+
+class QASource(BaseModel):
+    score: float
+    page_number: int
+    text: str
+
+
+class QAResponse(BaseModel):
+    document_id: str
+    question: str
+    answer: str
+    sources: List[QASource]
