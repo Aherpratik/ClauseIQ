@@ -38,6 +38,16 @@ Implemented a smart chunking pipeline that:
 
 This prepares documents for downstream embedding and semantic retrieval.
 
+## Current Progress
+
+- PDF upload API
+- Text extraction with PyMuPDF
+- Page-wise document parsing
+- Smart chunking with overlap
+- Embedding generation with Sentence Transformers
+- FAISS-based semantic retrieval
+- Search endpoint for relevant chunk lookup
+
 ##  What's Next
 
 - Vector embeddings
