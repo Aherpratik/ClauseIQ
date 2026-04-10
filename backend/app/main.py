@@ -1,9 +1,24 @@
 from fastapi import FastAPI
-from backend.app.api.v1 import upload
+from fastapi.middleware.cors import CORSMiddleware
+
+from backend.app.api.v1 import upload, analyze
+
 
 app = FastAPI(title="ClauseIQ API")
 
-app.include_router(upload.router, prefix="/api/v1", tags=["documents"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(upload.router, prefix="/api/v1", tags=["Documents"])
+app.include_router(analyze.router, prefix="/api/v1", tags=["Analyze"])
 
 
 @app.get("/")

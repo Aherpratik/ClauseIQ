@@ -15,7 +15,7 @@ class VectorService:
 
     @classmethod
     def _metadata_path(cls, document_id: str) -> Path:
-        return cls.INDEX_DIR / f"{document_id}._chunks.json"
+        return cls.INDEX_DIR / f"{document_id}_chunks.json"
 
     @classmethod
     def save_document_index(
@@ -31,17 +31,25 @@ class VectorService:
         index = faiss.IndexFlatIP(dimension)
         index.add(embeddings)
 
-        faiss.write_index(index, str(cls._index_path(document_id)))
+        index_path = cls._index_path(document_id)
+        metadata_path = cls._metadata_path(document_id)
 
-        with cls._metadata_path(document_id).open("w", encoding="utf-8") as f:
+        print("SAVE index path:", index_path.resolve())
+        print("SAVE metadata path:", metadata_path.resolve())
+
+        faiss.write_index(index, str(index_path))
+
+        with metadata_path.open("w", encoding="utf-8") as f:
             json.dump(chunks, f, ensure_ascii=False, indent=2)
+
+        print("SAVE metadata exists after write:", metadata_path.exists())
 
         return {
             "document_id": document_id,
             "num_chunks": len(chunks),
             "embedding_dimension": dimension,
-            "index_path": str(cls._index_path(document_id)),
-            "metadata_path": str(cls._metadata_path(document_id)),
+            "index_path": str(index_path),
+            "metadata_path": str(metadata_path),
         }
 
     @classmethod
@@ -53,6 +61,11 @@ class VectorService:
     ) -> List[Dict]:
         index_path = cls._index_path(document_id)
         metadata_path = cls._metadata_path(document_id)
+
+        print("SEARCH index path:", index_path.resolve())
+        print("SEARCH metadata path:", metadata_path.resolve())
+        print("SEARCH index exists:", index_path.exists())
+        print("SEARCH metadata exists:", metadata_path.exists())
 
         if not index_path.exists() or not metadata_path.exists():
             raise FileNotFoundError("Index or metadata not found for document.")

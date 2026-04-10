@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import List, Dict, Any
 
 
 class UploadedDocumentResponse(BaseModel):
@@ -63,4 +63,10 @@ class QAResponse(BaseModel):
     document_id: str
     question: str
     answer: str
+    sources: List[QASource]
+
+
+class AnalyzeResponse(BaseModel):
+    document_id: str
+    analysis: Dict[str, Any]
     sources: List[QASource]

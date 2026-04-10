@@ -48,72 +48,6 @@ async def upload_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"File Uploaded failed : {str(e)}")
 
 
-@router.post("/qa/{document_id}", response_model=QAResponse)
-def ask_question(document_id: str, payload: QARequest = Body(...)):
-    question = payload.question.strip()
-    top_k = payload.top_k
-
-    if not question:
-        raise HTTPException(status_code=400, detail="Quesiton cannot be empty.")
-
-    if top_k < 1 or top_k > 10:
-        raise HTTPException(status_code=400, detail="Top_K must be between 1 and 10.")
-
-    try:
-        query_embedding = EmbeddingService.embed_query(question)
-
-        results = VectorService.search_document(
-            document_id=document_id,
-            query_embedding=query_embedding,
-            top_k=top_k,
-        )
-
-        if not results:
-            return QAResponse(
-                document_id=document_id,
-                question=question,
-                answer=" I could not find answer in provided document",
-                sources=[],
-            )
-
-        context_parts = []
-        sources = []
-
-        for item in results:
-            chunk = item["chunk"]
-            score = item["score"]
-
-            context_parts.append(
-                f"[Page {chunk['page_number']} | Score {score:.4f}]\n{chunk['text']}"
-            )
-
-            sources.append(
-                QASource(
-                    score=score,
-                    page_number=chunk["page_number"],
-                    text=chunk["text"],
-                )
-            )
-
-            context = "\n\n".join(context_parts)
-
-            answer = LLMService.answer_question(
-                question=question,
-                context=context,
-            )
-
-            return QAResponse(
-                document_id=document_id,
-                question=question,
-                answer=answer,
-                sources=sources,
-            )
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"QA failed: {str(e)}")
-
-
 @router.get("/extract/{document_id}", response_model=ExtractedDocumentResponse)
 def extract_document(document_id: str):
     matching_files = list(UPLOAD_DIR.glob(f"{document_id}_*.pdf"))
@@ -180,3 +114,69 @@ def search_document(document_id: str, query: str, top_k: int = 5):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+
+@router.post("/qa/{document_id}", response_model=QAResponse)
+def ask_question(document_id: str, payload: QARequest = Body(...)):
+    question = payload.question.strip()
+    top_k = payload.top_k
+
+    if not question:
+        raise HTTPException(status_code=400, detail="Quesiton cannot be empty.")
+
+    if top_k < 1 or top_k > 10:
+        raise HTTPException(status_code=400, detail="Top_K must be between 1 and 10.")
+
+    try:
+        query_embedding = EmbeddingService.embed_query(question)
+
+        results = VectorService.search_document(
+            document_id=document_id,
+            query_embedding=query_embedding,
+            top_k=top_k,
+        )
+
+        if not results:
+            return QAResponse(
+                document_id=document_id,
+                question=question,
+                answer=" I could not find answer in provided document",
+                sources=[],
+            )
+
+        context_parts = []
+        sources = []
+
+        for item in results:
+            chunk = item["chunk"]
+            score = item["score"]
+
+            context_parts.append(
+                f"[Page {chunk['page_number']} | Score {score:.4f}]\n{chunk['text']}"
+            )
+
+            sources.append(
+                QASource(
+                    score=score,
+                    page_number=chunk["page_number"],
+                    text=chunk["text"],
+                )
+            )
+
+            context = "\n\n".join(context_parts)
+
+            answer = LLMService.answer_question(
+                question=question,
+                context=context,
+            )
+
+            return QAResponse(
+                document_id=document_id,
+                question=question,
+                answer=answer,
+                sources=sources,
+            )
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"QA failed: {str(e)}")
