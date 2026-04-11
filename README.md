@@ -1,59 +1,49 @@
-# ClauseIQ 
+# ClauseIQ
 
-ClauseIQ is a backend system for intelligent document processing and analysis, designed to extract, structure, and prepare documents for advanced semantic understanding.
+ClauseIQ is a full-stack GenAI-powered document intelligence platform that enables users to upload documents, extract structured content, and generate actionable insights such as summaries, clauses, risks, and semantic search results.
+
+---
 
 ##  Features
 
--  Upload documents via API
--  Extract structured text from PDFs
--  Page-wise content extraction
--  FastAPI-based scalable backend
--  Clean JSON responses for downstream processing
+###  Document Processing
+- Upload PDF documents via API or UI
+- Extract structured, page-wise text using PyMuPDF
+- Smart chunking with overlap for semantic understanding
 
-##  Tech Stack
+###  AI-Powered Analysis
+- Automatic document summarization
+- Clause extraction and categorization
+- Risk identification (high/medium insights)
+- Key field detection from legal/business documents
 
-- Python
-- FastAPI
-- PyMuPDF (PDF parsing)
-- Uvicorn
+###  Semantic Search
+- Embedding-based retrieval using Sentence Transformers
+- FAISS-powered vector search
+- Relevant chunk retrieval for grounded answers
 
-##  API Endpoints
+###  Ask AI (RAG-based QA)
+- Context-aware question answering over documents
+- Uses retrieved chunks for grounded responses
+- Avoids hallucination with constrained prompting
 
-### Upload Document
+###  Interactive Frontend (React + Tailwind)
+- Workspace-style UI (like real SaaS product)
+- Document viewer with page rendering
+- Analysis panel with tabs:
+  - Overview
+  - Key Fields
+  - Clauses
+  - Risks
+  - Ask AI
+  - Search
+- Real-time API integration (no mock data)
 
-POST /api/v1/upload
+---
 
+##  Architecture
 
-### Extract Document
-
-GET /api/v1/extract/{document_id}
-
-## 🧩 Chunking Engine
-
-Implemented a smart chunking pipeline that:
-- Splits documents into overlapping chunks
-- Preserves page context
-- Avoids breaking sentences abruptly
-- Stores metadata (page number, offsets, chunk length)
-
-This prepares documents for downstream embedding and semantic retrieval.
-
-## Current Progress
-
-- PDF upload API
-- Text extraction with PyMuPDF
-- Page-wise document parsing
-- Smart chunking with overlap
-- Embedding generation with Sentence Transformers
-- FAISS-based semantic retrieval
-- Search endpoint for relevant chunk lookup
-
-##  What's Next
-
-- Vector embeddings
-- Semantic search
-- Clause detection engine
-
-## 📌 Status
-
-In active development (building toward a full GenAI-powered document intelligence system)
+```text
+Upload → Extract → Chunk → Embed → Index (FAISS)
+                ↓
+           Retrieve → LLM → Insights 
