@@ -48,6 +48,8 @@ Upload → Extract → Chunk → Embed → Index (FAISS)
                 ↓
            Retrieve → LLM → Insights 
 
+```
+
 
 ##  Tech Stack
 
