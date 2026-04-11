@@ -1,140 +1,16 @@
-* {
-  box-sizing: border-box;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
 }
 
 body {
-  margin: 0;
-  font-family: Arial, Helvetica, sans-serif;
   background: #f8fafc;
-  color: #0f172a;
-}
-
-button,
-input,
-textarea {
-  font: inherit;
-}
-
-.app {
-  min-height: 100vh;
-  padding: 24px;
-}
-
-.header {
-  margin-bottom: 24px;
-}
-
-.header h1 {
-  margin: 0 0 8px 0;
-  font-size: 32px;
-}
-
-.header p {
-  margin: 0;
-  color: #475569;
-}
-
-.error-box {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
-  padding: 12px 14px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-}
-
-.layout {
-  display: grid;
-  grid-template-columns: 380px 1fr;
-  gap: 20px;
-}
-
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.card,
-.result-block {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 18px;
-}
-
-.card h2,
-.result-block h3 {
-  margin-top: 0;
-  margin-bottom: 14px;
-}
-
-.card label {
-  display: block;
-  margin-bottom: 8px;
-  margin-top: 12px;
-  font-weight: 600;
-}
-
-input[type="text"],
-input[type="number"],
-input[type="file"],
-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  background: white;
-}
-
-textarea {
-  resize: vertical;
-}
-
-button {
-  margin-top: 14px;
-  padding: 10px 14px;
-  border: none;
-  border-radius: 10px;
-  background: #0f172a;
-  color: white;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.button-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.results {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.result-block pre {
-  margin: 0;
-  max-height: 420px;
-  overflow: auto;
-  background: #f8fafc;
-  padding: 14px;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-@media (max-width: 1000px) {
-  .layout {
-    grid-template-columns: 1fr;
-  }
+  font-family: Inter, system-ui, sans-serif;
 }
