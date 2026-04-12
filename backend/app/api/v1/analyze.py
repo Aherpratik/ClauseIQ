@@ -25,10 +25,7 @@ def summarize_document(document_id: str):
 
         context = "\n\n".join(chunk["text"][:500] for chunk in chunks[:5])
 
-        summary = LLMService.answer_question(
-            question="Summarize this document in 5 to 8 concise bullet points.",
-            context=context,
-        )
+        summary = LLMService.summarize_document(context=context)
 
         return {
             "document_id": document_id,
