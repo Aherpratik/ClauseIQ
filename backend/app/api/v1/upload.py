@@ -122,10 +122,10 @@ def ask_question(document_id: str, payload: QARequest = Body(...)):
     top_k = payload.top_k
 
     if not question:
-        raise HTTPException(status_code=400, detail="Quesiton cannot be empty.")
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
     if top_k < 1 or top_k > 10:
-        raise HTTPException(status_code=400, detail="Top_K must be between 1 and 10.")
+        raise HTTPException(status_code=400, detail="Top_k must be between 1 and 10.")
 
     try:
         query_embedding = EmbeddingService.embed_query(question)
@@ -140,7 +140,7 @@ def ask_question(document_id: str, payload: QARequest = Body(...)):
             return QAResponse(
                 document_id=document_id,
                 question=question,
-                answer=" I could not find answer in provided document",
+                answer="I could not find the answer in the provided document context.",
                 sources=[],
             )
 
@@ -151,9 +151,7 @@ def ask_question(document_id: str, payload: QARequest = Body(...)):
             chunk = item["chunk"]
             score = item["score"]
 
-            context_parts.append(
-                f"[Page {chunk['page_number']} | Score {score:.4f}]\n{chunk['text']}"
-            )
+            context_parts.append(" ".join(chunk["text"].split()))
 
             sources.append(
                 QASource(
@@ -163,19 +161,20 @@ def ask_question(document_id: str, payload: QARequest = Body(...)):
                 )
             )
 
-            context = "\n\n".join(context_parts)
+        context = "\n\n".join(context_parts)
 
-            answer = LLMService.answer_question(
-                question=question,
-                context=context,
-            )
+        answer = LLMService.answer_question(
+            question=question,
+            context=context,
+        )
 
-            return QAResponse(
-                document_id=document_id,
-                question=question,
-                answer=answer,
-                sources=sources,
-            )
+        return QAResponse(
+            document_id=document_id,
+            question=question,
+            answer=answer,
+            sources=sources,
+        )
+
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

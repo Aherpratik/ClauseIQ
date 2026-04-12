@@ -9,6 +9,12 @@ from backend.app.services.vector_service import VectorService
 router = APIRouter()
 
 
+def clean_chunk_text(text: str) -> str:
+    if not text:
+        return ""
+    return " ".join(text.split())
+
+
 @router.get("/summary/{document_id}")
 def summarize_document(document_id: str):
     chunks_path = VectorService._metadata_path(document_id)
@@ -23,7 +29,10 @@ def summarize_document(document_id: str):
         if not chunks:
             raise HTTPException(status_code=404, detail="No chunks found for document")
 
-        context = "\n\n".join(chunk["text"][:500] for chunk in chunks[:5])
+        # keep summary context smaller and cleaner
+        context = "\n\n".join(
+            clean_chunk_text(chunk["text"])[:350] for chunk in chunks[:4]
+        )
 
         summary = LLMService.summarize_document(context=context)
 
@@ -40,13 +49,12 @@ def summarize_document(document_id: str):
 def analyze_document(document_id: str):
     try:
         retrieval_queries = [
-            "confidential information definition",
-            "term of agreement",
-            "termination",
+            "non disclosure agreement",
+            "confidential information",
+            "exclusions to confidentiality",
             "governing law",
-            "third party disclosure",
             "return or destruction of confidential information",
-            "exceptions to confidentiality",
+            "term and survival",
         ]
 
         merged_results = []
@@ -57,7 +65,7 @@ def analyze_document(document_id: str):
             results = VectorService.search_document(
                 document_id=document_id,
                 query_embedding=query_embedding,
-                top_k=3,
+                top_k=2,
             )
 
             for item in results:
@@ -75,16 +83,15 @@ def analyze_document(document_id: str):
 
         merged_results = sorted(merged_results, key=lambda x: x["score"], reverse=True)
 
-        context_parts = []
         sources = []
+        context_parts = []
 
-        for item in merged_results[:8]:
+        for item in merged_results[:6]:
             chunk = item["chunk"]
             score = item["score"]
+            clean_text = clean_chunk_text(chunk["text"])
 
-            context_parts.append(
-                f"[Page {chunk['page_number']} | Score {score:.4f}]\n{chunk['text']}"
-            )
+            context_parts.append(clean_text)
 
             sources.append(
                 QASource(
