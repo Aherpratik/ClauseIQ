@@ -251,169 +251,172 @@ Context:
         else:
             document_type = "Legal Agreement"
 
-        # ----------------------------
-        # 2. STRONG RULE-BASED EXTRACTION (NO LLM)bvggf
-        # ----------------------------
-
-        # Document Type
-        if "invention assignment agreement" in lower:
-            document_type = "Invention Assignment Agreement"
-        elif "non-disclosure agreement" in lower or "nda" in lower:
-            document_type = "NDA"
-        else:
-            document_type = "Legal Agreement"
-
-        # Parties (VERY IMPORTANT FIX)
+        # 2. Strong rule-based extraction
         parties = []
+        effective_date = ""
+        governing_law = ""
+        term = ""
+        return_or_destruction_of_materials = ""
 
-        # Extract company name
-        company_match = re.search(r'([A-Z][A-Za-z0-9&,\.\-\s]+?)\s+\("Company"\)', text)
+        # Better company extraction for invention assignment agreements
+        company_match = re.search(
+            r'by\s+and\s+between\s+([A-Z][A-Za-z0-9&,\.\-\s]+?)\s+\("Company"\)',
+            text,
+            re.IGNORECASE,
+        )
 
         if company_match:
             parties.append(company_match.group(1).strip())
 
-        # Detect Intern
+        # Intern detection
         if '"Intern"' in text or '("Intern")' in text or "intern" in lower:
             parties.append("Intern")
 
-        # Fallback NDA roles
+        # NDA fallback roles
         if not parties:
             if "disclosing party" in lower:
                 parties.append("Disclosing Party")
             if "receiving party" in lower:
                 parties.append("Receiving Party")
 
-        # Effective Date
-        effective_date = ""
+        # Effective date
         date_match = re.search(
-            r"(effective date|dated|entered into as of)\s*[:\-]?\s*([A-Za-z0-9,\/\-\s]+)",
+            r"(effective date|dated|entered into as of|made and entered into as of)\s*[:\-]?\s*([A-Za-z0-9,\/\-\s]+)",
             text,
             re.IGNORECASE,
         )
-
         if date_match:
             candidate = cls._normalize_scalar(date_match.group(2))
-            if "mm/dd" not in candidate.lower():
+            if candidate and "mm/dd" not in candidate.lower():
                 effective_date = candidate
 
-        # Governing Law
-        governing_law = ""
+        # Governing law
         law_match = re.search(
             r"governed by the laws of\s+([A-Za-z\s]+)",
             text,
             re.IGNORECASE,
         )
-
         if law_match:
             governing_law = cls._normalize_scalar(law_match.group(1))
 
-        # Term / Survival
-        term = ""
+        # Term / survival
         term_match = re.search(
             r"(term|survive|survival).{0,120}",
             text,
             re.IGNORECASE,
         )
-
         if term_match:
             term = cls._normalize_scalar(term_match.group(0))
 
-        # Return / Destruction
-        return_or_destruction_of_materials = ""
+        # Return / destruction
         return_match = re.search(
             r"(return|destroy).{0,180}(materials|information|documents)",
             text,
             re.IGNORECASE,
         )
-
         if return_match:
             return_or_destruction_of_materials = cls._normalize_scalar(
                 return_match.group(0)
             )
 
-        # 3. LLM fallback for harder fields
+        # 3. LLM fallback for document-specific enrichment
         prompt = f"""
-You are a legal document analysis system.
+    You are a legal document extraction system.
 
-Extract structured data from the context below.
+    Extract structured information from the document.
 
-STRICT RULES:
-- Return ONLY valid JSON
-- MUST start with {{ and end with }}
-- NO duplicate keys
-- NO trailing commas
-- NO explanation
-- Keep answers short (1–2 lines max)
-- If not found, return "" for strings and [] for lists
+    Return ONLY valid JSON. Do NOT include any explanation or extra text.
 
-JSON FORMAT:
-{{
-  "confidential_information_definition": "",
-  "permitted_use": "",
-  "non_disclosure_obligations": "",
-  "exclusions": "",
-  "third_party_disclosure_rules": "",
-  "termination": "",
-  "survival_clause": "",
-  "risks": []
-}}
+    Required JSON format:
 
-Context:
-{text}
-"""
+    {{
+    "document_type": "",
+    "parties": [],
+    "effective_date": "",
+    "governing_law": "",
+    "term": "",
+    "assignment_scope": "",
+    "work_product_ip": ""
+    }}
+
+    Rules:
+    - document_type must be one of: NDA, Invention Assignment Agreement, Other
+    - parties must be a list of names
+    - If not found, return empty string "" or empty list []
+    - Output MUST be valid JSON with no text before or after
+
+    Document:
+    \"\"\"{text}\"\"\"
+    """
 
         raw = cls._generate(prompt=prompt, max_new_tokens=260)
         print("RAW LLM:", raw)
 
-        llm_data = {
-            "confidential_information_definition": "",
-            "permitted_use": "",
-            "non_disclosure_obligations": "",
-            "exclusions": "",
-            "third_party_disclosure_rules": "",
-            "termination": "",
-            "survival_clause": "",
-            "risks": [],
-        }
+        parsed = safe_parse_json(raw)
+        parsed = parsed if isinstance(parsed, dict) else {}
 
-        try:
-            parsed = safe_parse_json(raw)
-            parsed = parsed if isinstance(parsed, dict) else {}
+        assignment_scope = cls._normalize_scalar(
+            str(parsed.get("assignment_scope", ""))
+        )
+        work_product_ip = cls._normalize_scalar(str(parsed.get("work_product_ip", "")))
 
-            llm_data["confidential_information_definition"] = cls._normalize_scalar(
-                str(parsed.get("confidential_information_definition", ""))
+        if not assignment_scope:
+            scope_match = re.search(
+                r"(assignment of rights.{0,180}|assign.{0,180}inventions?.{0,180}|inventions?.{0,180}assigned.{0,180})",
+                text,
+                re.IGNORECASE,
             )
-            llm_data["permitted_use"] = cls._normalize_scalar(
-                str(parsed.get("permitted_use", ""))
-            )
-            llm_data["non_disclosure_obligations"] = cls._normalize_scalar(
-                str(parsed.get("non_disclosure_obligations", ""))
-            )
-            llm_data["exclusions"] = cls._normalize_scalar(
-                str(parsed.get("exclusions", ""))
-            )
-            llm_data["third_party_disclosure_rules"] = cls._normalize_scalar(
-                str(parsed.get("third_party_disclosure_rules", ""))
-            )
-            llm_data["termination"] = cls._normalize_scalar(
-                str(parsed.get("termination", ""))
-            )
-            llm_data["survival_clause"] = cls._normalize_scalar(
-                str(parsed.get("survival_clause", ""))
-            )
+            if scope_match:
+                assignment_scope = cls._normalize_scalar(scope_match.group(0))
 
-            risks_raw = parsed.get("risks", [])
-            if isinstance(risks_raw, list):
-                cleaned_risks = []
-                for item in risks_raw:
-                    if isinstance(item, str):
-                        cleaned = cls._normalize_scalar(item)
-                        if cleaned:
-                            cleaned_risks.append(cleaned)
-                llm_data["risks"] = cleaned_risks
+        if not work_product_ip:
+            ip_match = re.search(
+                r"(company intellectual property.{0,220}|inventions?.{0,220}|work product.{0,220})",
+                text,
+                re.IGNORECASE,
+            )
+            if ip_match:
+                work_product_ip = cls._normalize_scalar(ip_match.group(0))
 
-        except Exception:
-            pass
+        # Optional override only if LLM returns something usable
+        llm_document_type = cls._normalize_scalar(str(parsed.get("document_type", "")))
+        if llm_document_type in {"NDA", "Invention Assignment Agreement", "Other"}:
+            if llm_document_type == "Other":
+                document_type = "Legal Agreement"
+            else:
+                document_type = llm_document_type
+
+        llm_parties = parsed.get("parties", [])
+        if isinstance(llm_parties, list) and llm_parties:
+            normalized_llm_parties = cls._dedupe_parties(
+                [cls._normalize_scalar(str(p)) for p in llm_parties if str(p).strip()]
+            )
+            if normalized_llm_parties:
+                parties = normalized_llm_parties
+
+        llm_effective_date = cls._normalize_scalar(
+            str(parsed.get("effective_date", ""))
+        )
+        if llm_effective_date and "mm/dd" not in llm_effective_date.lower():
+            effective_date = llm_effective_date
+
+        llm_governing_law = cls._normalize_scalar(str(parsed.get("governing_law", "")))
+        if llm_governing_law:
+            governing_law = llm_governing_law
+
+        llm_term = cls._normalize_scalar(str(parsed.get("term", "")))
+        if llm_term:
+            term = llm_term
+
+        # --------- FALLBACK: Work Product / IP (RULE-BASED) ---------
+        if not work_product_ip:
+            ip_match = re.search(
+                r"(inventions?.{0,120}|intellectual property.{0,120}|work product.{0,120})",
+                text,
+                re.IGNORECASE,
+            )
+            if ip_match:
+                work_product_ip = cls._normalize_scalar(ip_match.group(0))
 
         return {
             "document_type": document_type,
@@ -421,8 +424,9 @@ Context:
             "effective_date": effective_date,
             "term": term,
             "governing_law": governing_law,
+            "assignment_scope": assignment_scope,
+            "work_product_ip": work_product_ip,
             "return_or_destruction_of_materials": return_or_destruction_of_materials,
-            # optional (can stay empty for now)
             "confidential_information_definition": "",
             "permitted_use": "",
             "non_disclosure_obligations": "",

@@ -34,7 +34,7 @@ export default function OverviewTab({ analysis }) {
   const inventionItems = [
     {
       label: "Assignment Scope",
-      value: analysis.term || "Not found",
+      value: analysis.assignment_scope || "Not found",
     },
     {
       label: "Work Product / IP",
