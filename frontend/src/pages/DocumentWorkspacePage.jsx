@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
+import { useParams, useLocation } from "react-router-dom";
 import DocumentHeader from "../components/workspace/DocumentHeader";
 import WorkspaceSidebar from "../components/workspace/WorkspaceSidebar";
 import DocumentViewer from "../components/workspace/DocumentViewer";
 import AnalysisPanel from "../components/workspace/AnalysisPanel";
 import { getExtract, getSummary, getAnalysis } from "../services/api";
-import { useParams, useLocation } from "react-router-dom";
 
 function formatDateTime(value) {
   if (!value) return "Unknown";
@@ -33,7 +33,8 @@ export default function DocumentWorkspacePage() {
 
         try {
           const analysisData = await getAnalysis(documentId);
-          setAnalysis(analysisData);
+          console.log("FULL API RESPONSE:", analysisData);
+          setAnalysis(analysisData.analysis || null);
         } catch (analysisErr) {
           console.warn("Analysis failed, continuing without it:", analysisErr);
           setAnalysis(null);
@@ -62,46 +63,52 @@ export default function DocumentWorkspacePage() {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">
-        {error}
+      <div className="w-full p-6">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">
+          {error}
+        </div>
       </div>
     );
   }
 
   if (!document) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-600 shadow-sm">
-        Loading document...
+      <div className="w-full p-6">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-600 shadow-sm">
+          Loading document...
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50">
-      <DocumentHeader document={document} />
+    <div className="h-screen overflow-x-hidden bg-slate-50">
+      <main className="h-full overflow-y-auto overflow-x-hidden p-6">
+        <div className="w-full min-w-0">
+          <DocumentHeader document={document} />
 
-      <div className="flex-1 min-h-0 p-4">
-        <div className="flex h-full gap-4">
-          <div className="w-[260px] shrink-0 h-full">
-            <WorkspaceSidebar
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-            />
-          </div>
+          <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-[260px_minmax(0,1fr)_300px]">
+            <div className="min-w-0">
+              <WorkspaceSidebar
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+              />
+            </div>
 
-          <div className="flex-1 min-w-0 h-full max-w-none">
-            <DocumentViewer pages={pages} />
-          </div>
+            <div className="min-w-0">
+              <DocumentViewer pages={pages} />
+            </div>
 
-          <div className="w-[300px] shrink-0 h-full">
-            <AnalysisPanel
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              analysis={analysis}
-            />
+            <div className="min-w-0">
+              <AnalysisPanel
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                analysis={analysis}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
