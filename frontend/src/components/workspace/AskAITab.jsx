@@ -1,39 +1,94 @@
-export default function AskAITab() {
-    return (
-      <div className="space-y-4">
-        <div className="rounded-lg border border-slate-200 p-4">
-          <label className="text-sm font-medium text-slate-700">
-            Ask a question about this document
-          </label>
-          <textarea
-            rows={4}
-            placeholder="What is considered confidential information in this agreement?"
-            className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
-          />
-          <button className="mt-3 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
-            Ask ClauseIQ
-          </button>
-        </div>
-  
-        <div className="rounded-lg border border-slate-200 p-4">
-          <h4 className="text-sm font-semibold text-slate-900">Answer</h4>
-          <p className="mt-3 text-sm leading-6 text-slate-700">
-            The agreement defines confidential information as non-public,
-            proprietary, business, financial, technical, and operational
-            information disclosed by the Disclosing Party.
+import { useState } from "react";
+import { askQuestion } from "../../services/api";
+
+export default function AskAITab({ documentId }) {
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [sources, setSources] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleAsk() {
+    if (!question.trim()) return;
+
+    try {
+      setLoading(true);
+      setError("");
+      setAnswer("");
+      setSources([]);
+
+      const response = await askQuestion(documentId, question.trim());
+
+      setAnswer(response.answer || "No answer returned.");
+      setSources(response.sources || []);
+    } catch (err) {
+      console.error("Ask AI failed:", err);
+      setError("Failed to get answer from document.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h3 className="text-base font-semibold text-slate-900">
+          Ask a question about this document
+        </h3>
+
+        <textarea
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="Ask something about this document..."
+          className="mt-3 min-h-[120px] w-full rounded-md border border-slate-300 p-3 text-sm outline-none focus:border-slate-500"
+        />
+
+        <button
+          onClick={handleAsk}
+          disabled={loading}
+          className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+        >
+          {loading ? "Asking..." : "Ask ClauseIQ"}
+        </button>
+
+        {error && (
+          <p className="mt-3 text-sm text-red-600">
+            {error}
           </p>
-  
+        )}
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h3 className="text-base font-semibold text-slate-900">Answer</h3>
+
+        <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
+          {answer || "No answer yet."}
+        </p>
+
+        {sources.length > 0 && (
           <div className="mt-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Evidence
-            </p>
-            <div className="mt-2 rounded-md bg-slate-50 p-3 text-sm text-slate-700 border border-slate-200">
-              Page 1: “Confidential Information includes all non-public,
-              proprietary, or sensitive business, financial, technical, and
-              operational information...”
+            </h4>
+
+            <div className="mt-2 space-y-3">
+              {sources.map((source, index) => (
+                <div
+                  key={index}
+                  className="rounded-md border border-slate-200 bg-slate-50 p-3"
+                >
+                  <p className="text-xs font-medium text-slate-500">
+                    Page {source.page_number} • Score {source.score?.toFixed?.(3) ?? source.score}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {source.text}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        )}
       </div>
-    );
-  }
+    </div>
+  );
+}

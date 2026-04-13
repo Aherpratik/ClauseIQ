@@ -13,13 +13,102 @@ function formatDateTime(value) {
 
 export default function DocumentWorkspacePage() {
   const [activeTab, setActiveTab] = useState("overview");
-  const [document, setDocument] = useState(null);
+  const [documentMeta, setDocumentMeta] = useState(null);
   const [pages, setPages] = useState([]);
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState("");
 
   const location = useLocation();
   const { id: documentId } = useParams();
+
+  async function loadAnalysisOnly() {
+    try {
+      console.log("Re-running analysis for:", documentId);
+
+      const analysisData = await getAnalysis(documentId);
+      setAnalysis(analysisData.analysis || null);
+
+      setDocumentMeta((prev) =>
+        prev
+          ? {
+              ...prev,
+              lastAnalyzed: new Date().toLocaleString(),
+            }
+          : prev
+      );
+    } catch (err) {
+      console.error("Failed to rerun analysis:", err);
+      alert("Failed to re-run analysis.");
+    }
+  }
+
+  function handleExportJSON() {
+    try {
+      if (!analysis) {
+        alert("No analysis available to export.");
+        return;
+      }
+
+      const blob = new Blob([JSON.stringify(analysis, null, 2)], {
+        type: "application/json",
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const a = window.document.createElement("a");
+      a.href = url;
+      a.download = `${(documentMeta?.name || "document-analysis").replace(
+        /\.pdf$/i,
+        ""
+      )}.json`;
+
+      window.document.body.appendChild(a);
+      a.click();
+      window.document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export JSON failed:", err);
+      alert("Failed to export JSON.");
+    }
+  }
+
+  function handleExportReport() {
+    try {
+      if (!documentMeta || !analysis) {
+        alert("No report data available to export.");
+        return;
+      }
+
+      const report = `
+Document: ${documentMeta.name}
+Uploaded: ${documentMeta.uploadedAt}
+Pages: ${documentMeta.pages}
+Last analyzed: ${documentMeta.lastAnalyzed}
+
+Summary:
+${documentMeta.summary}
+
+Analysis:
+${JSON.stringify(analysis, null, 2)}
+      `.trim();
+
+      const blob = new Blob([report], { type: "text/plain" });
+      const url = window.URL.createObjectURL(blob);
+      const a = window.document.createElement("a");
+      a.href = url;
+      a.download = `${(documentMeta.name || "document-report").replace(
+        /\.pdf$/i,
+        ""
+      )}-report.txt`;
+
+      window.document.body.appendChild(a);
+      a.click();
+      window.document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export report failed:", err);
+      alert("Failed to export report.");
+    }
+  }
 
   useEffect(() => {
     async function loadDocumentData() {
@@ -40,7 +129,7 @@ export default function DocumentWorkspacePage() {
           setAnalysis(null);
         }
 
-        setDocument({
+        setDocumentMeta({
           name: (extractData.filename || "Untitled Document").replace(
             /^[a-f0-9-]+_/,
             ""
@@ -71,7 +160,7 @@ export default function DocumentWorkspacePage() {
     );
   }
 
-  if (!document) {
+  if (!documentMeta) {
     return (
       <div className="w-full p-6">
         <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-600 shadow-sm">
@@ -85,13 +174,19 @@ export default function DocumentWorkspacePage() {
     <div className="h-screen overflow-x-hidden bg-slate-50">
       <main className="h-full overflow-y-auto overflow-x-hidden p-6">
         <div className="w-full min-w-0">
-          <DocumentHeader document={document} />
+          <DocumentHeader
+            document={documentMeta}
+            onRerunAnalysis={loadAnalysisOnly}
+            onExportJSON={handleExportJSON}
+            onExportReport={handleExportReport}
+          />
 
           <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-[260px_minmax(0,1fr)_300px]">
             <div className="min-w-0">
               <WorkspaceSidebar
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
+                analysis={analysis}
               />
             </div>
 
@@ -104,6 +199,7 @@ export default function DocumentWorkspacePage() {
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 analysis={analysis}
+                documentId={documentId}
               />
             </div>
           </div>

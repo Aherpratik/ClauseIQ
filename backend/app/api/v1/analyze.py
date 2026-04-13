@@ -77,7 +77,7 @@ def summarize_document(document_id: str):
             clean_chunk_text(chunk["text"])[:220] for chunk in chunks[:2]
         )
 
-        summary = build_simple_summary(context)
+        summary = LLMService.summarize_document(context)
 
         return {
             "document_id": document_id,

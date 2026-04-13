@@ -14,11 +14,16 @@ const tabLabels = [
   { id: "search", label: "Search" },
 ];
 
-export default function AnalysisPanel({ activeTab, setActiveTab, analysis }) {
+export default function AnalysisPanel({
+  activeTab,
+  setActiveTab,
+  analysis,
+  documentId,
+}) {
   const isLoading = analysis === null;
 
   return (
-    <aside className="h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm overflow-hidden">
+    <aside className="h-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="border-b border-slate-200 pb-4">
         <h3 className="text-2xl font-semibold text-slate-950">Analysis</h3>
         <p className="mt-2 text-sm leading-6 text-slate-500">
@@ -53,7 +58,7 @@ export default function AnalysisPanel({ activeTab, setActiveTab, analysis }) {
             {activeTab === "fields" && <KeyFieldsTab analysis={analysis} />}
             {activeTab === "clauses" && <ClausesTab analysis={analysis} />}
             {activeTab === "risks" && <RisksTab analysis={analysis} />}
-            {activeTab === "ask-ai" && <AskAITab analysis={analysis} />}
+            {activeTab === "ask-ai" && <AskAITab documentId={documentId} />}
             {activeTab === "search" && <SearchTab analysis={analysis} />}
           </>
         )}

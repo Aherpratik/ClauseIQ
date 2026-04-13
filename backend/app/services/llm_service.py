@@ -208,26 +208,27 @@ Context:
     @classmethod
     def answer_question(cls, question: str, context: str) -> str:
         prompt = f"""
-You are a legal document question-answering assistant.
+You are a legal document question answering assistant.
 
-Answer the question using ONLY the provided context.
+Use only the context below to answer the question.
 
-Rules:
-- Do not invent facts.
-- Do not use outside knowledge.
-- Keep the answer to 1 to 3 sentences.
-- If the answer is not clearly present, return exactly:
+If the answer is not present in the context, respond exactly with:
 I could not find the answer in the provided document context.
+
+Context:
+{context}
 
 Question:
 {question}
 
-Context:
-{context}
+Answer:
 """
-        answer = cls._generate(prompt=prompt, max_new_tokens=140)
+        answer = cls._generate(prompt=prompt, max_new_tokens=120)
 
         if answer == "NOT_FOUND":
+            return "I could not find the answer in the provided document context."
+
+        if answer.strip().lower() in {"do not guess", "answer:", "[]"}:
             return "I could not find the answer in the provided document context."
 
         return answer
@@ -246,6 +247,9 @@ Context:
             or "nda" in lower
         ):
             document_type = "NDA"
+        elif "appointment" in text.lower() or "employment" in text.lower():
+            document_type = "Employment Agreement"
+
         elif "confidential" in lower and "disclosure" in lower:
             document_type = "NDA"
         else:
@@ -259,14 +263,20 @@ Context:
         return_or_destruction_of_materials = ""
 
         # Better company extraction for invention assignment agreements
-        company_match = re.search(
-            r'by\s+and\s+between\s+([A-Z][A-Za-z0-9&,\.\-\s]+?)\s+\("Company"\)',
-            text,
-            re.IGNORECASE,
-        )
+        if not parties:
+            # Company pattern
+            company_match = re.search(
+                r"([A-Z][A-Za-z0-9\s&]+ (?:Private Limited|Ltd|LLC|Inc))", text
+            )
 
-        if company_match:
-            parties.append(company_match.group(1).strip())
+            if company_match:
+                parties.append(company_match.group(1).strip())
+
+            # Person name (simple heuristic)
+            name_match = re.search(r"To,\s*\n\s*([A-Z][a-z]+\s+[A-Z][a-z]+)", text)
+
+            if name_match:
+                parties.append(name_match.group(1).strip())
 
         # Intern detection
         if '"Intern"' in text or '("Intern")' in text or "intern" in lower:
@@ -321,39 +331,50 @@ Context:
 
         # 3. LLM fallback for document-specific enrichment
         prompt = f"""
-    You are a legal document extraction system.
+You are a legal document extraction system.
 
-    Extract structured information from the document.
+Extract structured information from the document.
 
-    Return ONLY valid JSON. Do NOT include any explanation or extra text.
+Return ONLY valid JSON. Do NOT include any explanation, markdown, list, or extra text.
 
-    Required JSON format:
+Use this exact JSON structure:
 
-    {{
-    "document_type": "",
-    "parties": [],
-    "effective_date": "",
-    "governing_law": "",
-    "term": "",
-    "assignment_scope": "",
-    "work_product_ip": ""
-    }}
+{{
+  "document_type": "",
+  "parties": [],
+  "effective_date": "",
+  "governing_law": "",
+  "term": "",
+  "assignment_scope": "",
+  "work_product_ip": ""
+}}
 
-    Rules:
-    - document_type must be one of: NDA, Invention Assignment Agreement, Other
-    - parties must be a list of names
-    - If not found, return empty string "" or empty list []
-    - Output MUST be valid JSON with no text before or after
+Rules:
+- document_type must be one of: NDA, Invention Assignment Agreement, Employment Agreement, Legal Agreement
+- parties must be a JSON list of short names only
+- effective_date must be a short date string if clearly present, otherwise ""
+- governing_law must be a short jurisdiction string if clearly present, otherwise ""
+- term must be short and specific, otherwise ""
+- assignment_scope must be short and specific, otherwise ""
+- work_product_ip must be short and specific, otherwise ""
+- If a field is missing, return "" or []
+- Output must start with {{ and end with }}
+- Do not copy long passages
+- Do not return a Python list
+- Do not return prose
 
-    Document:
-    \"\"\"{text}\"\"\"
-    """
+Document:
+\"\"\"{text}\"\"\"
+"""
 
         raw = cls._generate(prompt=prompt, max_new_tokens=260)
         print("RAW LLM:", raw)
 
         parsed = safe_parse_json(raw)
         parsed = parsed if isinstance(parsed, dict) else {}
+
+        if not parsed:
+            parsed = {}
 
         assignment_scope = cls._normalize_scalar(
             str(parsed.get("assignment_scope", ""))
@@ -418,6 +439,122 @@ Context:
             if ip_match:
                 work_product_ip = cls._normalize_scalar(ip_match.group(0))
 
+        # 4. Rule-based risk detection
+        risks = []
+
+        if not parties:
+            risks.append("Parties are not clearly identified.")
+
+        if not effective_date:
+            risks.append("Effective date is not clearly identified.")
+
+        if not governing_law:
+            risks.append("Governing law is not clearly identified.")
+
+        if not term:
+            risks.append("Term or duration is not clearly identified.")
+
+        if "termination" not in lower and "terminate" not in lower:
+            risks.append("Termination terms are not clearly identified.")
+
+        if (
+            "sign" not in lower
+            and "signature" not in lower
+            and "accepted" not in lower
+            and "acceptance" not in lower
+        ):
+            risks.append("Signature or acceptance language is not clearly identified.")
+
+        if "____" in text or "___" in text or "(mm/dd/yy)" in lower:
+            risks.append("Document appears to contain unfilled placeholders.")
+
+        obligation_markers = [
+            "shall",
+            "must",
+            "agree to",
+            "agrees to",
+            "responsible for",
+        ]
+        if not any(marker in lower for marker in obligation_markers):
+            risks.append("Key obligations are not clearly stated.")
+
+        payment_context_markers = [
+            "salary",
+            "compensation",
+            "payment",
+            "ctc",
+            "remuneration",
+            "wages",
+            "bonus",
+        ]
+        if any(marker in lower for marker in payment_context_markers):
+            if not re.search(
+                r"(salary|compensation|ctc|remuneration|wages).{0,80}(\d|\$|rs|inr)",
+                lower,
+            ):
+                risks.append(
+                    "Payment or compensation terms may not be clearly specified."
+                )
+
+        ip_markers = [
+            "intellectual property",
+            "inventions",
+            "assignment",
+            "ownership",
+            "work product",
+            "proprietary",
+        ]
+        if any(marker in lower for marker in ip_markers):
+            if not assignment_scope and not work_product_ip:
+                risks.append(
+                    "Intellectual property or ownership scope is not clearly identified."
+                )
+
+        formatted_risks = []
+
+        for r in list(dict.fromkeys(risks))[:6]:
+            severity = "low"
+
+            if any(
+                word in r.lower()
+                for word in ["missing", "not clearly", "not identified"]
+            ):
+                severity = "medium"
+
+            if any(
+                word in r.lower()
+                for word in ["missing governing law", "missing parties"]
+            ):
+                severity = "high"
+
+            formatted_risks.append({"title": r, "description": r, "severity": severity})
+
+        clauses = []
+
+        text_lower = lower
+
+        if "confidential" in text_lower:
+            clauses.append("Confidentiality")
+
+        if "termination" in text_lower:
+            clauses.append("Termination")
+
+        if "payment" in text_lower or "salary" in text_lower:
+            clauses.append("Compensation")
+
+        if "law" in text_lower or "jurisdiction" in text_lower:
+            clauses.append("Governing Law")
+
+        if "liability" in text_lower:
+            clauses.append("Liability")
+
+        if "agreement" in text_lower and len(clauses) == 0:
+            clauses.append("General Terms")
+
+        # fallback (important)
+        if not clauses:
+            clauses = ["General Clause"]
+
         return {
             "document_type": document_type,
             "parties": cls._dedupe_parties(parties),
@@ -434,5 +571,6 @@ Context:
             "third_party_disclosure_rules": "",
             "termination": "",
             "survival_clause": "",
-            "risks": [],
+            "risks": formatted_risks,
+            "clauses": clauses,
         }

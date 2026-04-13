@@ -33,9 +33,28 @@ export async function getSummary(documentId) {
 }
 
 export async function getAnalysis(documentId) {
-    const res = await fetch(`${BASE_URL}/analyze/${documentId}`);
-    if (!res.ok) {
-      throw new Error("Failed to fetch analysis");
-    }
-    return res.json();
+  const res = await fetch(`${BASE_URL}/analyze/${documentId}`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch analysis");
   }
+  return res.json();
+}
+
+export async function askQuestion(documentId, question, topK = 5) {
+  const res = await fetch(`${BASE_URL}/qa/${documentId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      question,
+      top_k: topK,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to get answer");
+  }
+
+  return res.json();
+}
