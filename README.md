@@ -146,4 +146,22 @@ npm run dev
 - Answers are grounded in document context
 - Works best with structured PDFs
 
+## Screenshots
 
+### DashBoard
+![DashBoard](../ClauseIQ/frontend/src/assets/dashboard.png)
+
+### Document Workspace
+![Workspace](../ClauseIQ/frontend/src/assets/upload.png)
+
+### Analysis Panel
+![Analysis](../ClauseIQ/frontend/src/assets/analysis.png)
+
+
+![Analysis](../ClauseIQ/frontend/src/assets/analysis1.png)
+
+
+![Analysis](../ClauseIQ/frontend/src/assets/analysis2.png)
+
+
+![Analysis](../ClauseIQ/frontend/src/assets/analysis3.png)
