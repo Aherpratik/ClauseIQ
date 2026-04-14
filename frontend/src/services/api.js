@@ -58,3 +58,13 @@ export async function askQuestion(documentId, question, topK = 5) {
 
   return res.json();
 }
+
+export async function getDocuments() {
+  const res = await fetch(`${BASE_URL}/documents`);
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch documents");
+  }
+
+  return res.json();
+}

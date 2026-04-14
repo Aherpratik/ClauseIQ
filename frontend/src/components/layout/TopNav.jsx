@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 
 export default function TopNav() {
   return (
-    <header className="h-20 border-b border-slate-200 bg-white px-6 flex items-center justify-between">
+    <header className="h-20 border-b border-slate-200 bg-white/70 backdrop-blur-md px-6 flex items-center justify-between">
       <div>
         <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
           ClauseIQ
