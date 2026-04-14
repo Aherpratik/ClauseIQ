@@ -4,6 +4,17 @@ ClauseIQ is a document intelligence system that extracts structured insights fro
 
 ---
 
+##  Why ClauseIQ?
+
+Legal and business documents are often long, unstructured, and difficult to analyze manually.
+
+ClauseIQ demonstrates how modern GenAI systems can:
+- Transform raw documents into structured insights
+- Enable grounded, explainable question answering
+- Reduce manual review effort in legal/compliance workflows
+
+This project simulates a real-world document intelligence system used in enterprise environments.
+
 ##  Features
 
 ### Document Processing
@@ -141,27 +152,44 @@ npm install
 npm run dev
 ```
 
+
+##  Example Use Case
+
+Upload an NDA →  
+- Extract clauses (Confidentiality, Termination, etc.)
+- Identify potential risks  
+- Ask: *“What is considered confidential information?”*  
+- Get grounded answers with source references
+
+## Screenshots
+
+### DashBoard
+![DashBoard](./assets/dashboard.png)
+
+### Document Workspace
+![Workspace](./assets/upload.png)
+
+### Analysis Panel
+![Analysis](./assets/analysis.png)
+
+
+![Analysis](./assets/analysis1.png)
+
+
+![Analysis](./assets/analysis2.png)
+
+
+![Analysis](./assets/analysis3.png)
+
 ## Notes
 - Uses local models (no paid APIs)
 - Answers are grounded in document context
 - Works best with structured PDFs
 
-## Screenshots
+##  Future Improvements
 
-### DashBoard
-![DashBoard](../ClauseIQ/frontend/src/assets/dashboard.png)
-
-### Document Workspace
-![Workspace](../ClauseIQ/frontend/src/assets/upload.png)
-
-### Analysis Panel
-![Analysis](../ClauseIQ/frontend/src/assets/analysis.png)
-
-
-![Analysis](../ClauseIQ/frontend/src/assets/analysis1.png)
-
-
-![Analysis](../ClauseIQ/frontend/src/assets/analysis2.png)
-
-
-![Analysis](../ClauseIQ/frontend/src/assets/analysis3.png)
+- Real risk scoring using LLM outputs
+- Multi-document comparison
+- Document status auto-refresh (processing → ready)
+- Authentication and user dashboards
+- Cloud deployment (Docker + AWS/GCP)
