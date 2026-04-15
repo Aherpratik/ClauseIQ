@@ -2,26 +2,7 @@ import json
 import re
 from typing import Any
 
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-
-
-def extract_json(text):
-    try:
-        # Try direct JSON
-        return json.loads(text)
-    except:
-        pass
-
-    # Try to extract JSON block
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group())
-        except:
-            pass
-
-    print(" JSON extraction failed. Raw output:", text)
-    return {}
+import requests
 
 
 def safe_parse_json(raw: str):
@@ -42,48 +23,46 @@ def safe_parse_json(raw: str):
 
 
 class LLMService:
-    _tokenizer = None
-    _model = None
-    _model_name = "google/flan-t5-large"
-
-    @classmethod
-    def load_model(cls):
-        if cls._tokenizer is None or cls._model is None:
-            cls._tokenizer = AutoTokenizer.from_pretrained(cls._model_name)
-            cls._model = AutoModelForSeq2SeqLM.from_pretrained(cls._model_name)
+    _base_url = "http://localhost:11434/api/generate"
+    _model_name = "mistral"
 
     @classmethod
     def _generate(
         cls,
         prompt: str,
-        max_input_tokens: int = 1024,
         max_new_tokens: int = 256,
     ) -> str:
-        cls.load_model()
+        try:
+            response = requests.post(
+                cls._base_url,
+                json={
+                    "model": cls._model_name,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "num_predict": max_new_tokens,
+                        "temperature": 0.1,
+                    },
+                },
+                timeout=120,
+            )
+            response.raise_for_status()
 
-        inputs = cls._tokenizer(
-            prompt,
-            return_tensors="pt",
-            truncation=True,
-            max_length=max_input_tokens,
-        )
+            data = response.json()
+            text = data.get("response", "").strip()
 
-        outputs = cls._model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            do_sample=False,
-        )
+            print("\n\n===== RAW MODEL OUTPUT =====")
+            print(text)
+            print("================================\n\n")
 
-        response = cls._tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+            if not text:
+                return "NOT_FOUND"
 
-        print("\n\n===== RAW MODEL OUTPUT =====")
-        print(response)
-        print("================================\n\n")
+            return text
 
-        if not response:
+        except Exception as e:
+            print("Ollama request failed:", str(e))
             return "NOT_FOUND"
-
-        return response
 
     @staticmethod
     def _clean_text(value: str) -> str:
@@ -109,8 +88,6 @@ class LLMService:
             "effective_date",
             "term",
             "governing_law",
-            "non_disclosure_obligations",
-            "third_party_disclosure_rules",
             "parties",
             "document_type",
         }
@@ -128,30 +105,6 @@ class LLMService:
             return ""
 
         return cleaned
-
-    @staticmethod
-    def _normalize_list_text(value: str) -> list[str]:
-        cleaned = LLMService._clean_text(value)
-
-        if not cleaned:
-            return []
-
-        lowered = cleaned.lower()
-        if lowered in {"not found", "unknown", "none", "null", "n/a", "parties"}:
-            return []
-
-        parts = re.split(r"\s*[,;|\n]\s*", cleaned)
-        parts = [p.strip(" -•\t\"'") for p in parts if p.strip(" -•\t\"'")]
-
-        seen = set()
-        result = []
-        for part in parts:
-            key = part.lower()
-            if key not in seen and key not in {"parties"}:
-                seen.add(key)
-                result.append(part)
-
-        return result
 
     @staticmethod
     def _dedupe_parties(parties: list[str]) -> list[str]:
@@ -179,21 +132,17 @@ class LLMService:
         prompt = f"""
 You are a legal document summarization assistant.
 
-Summarize the document in EXACTLY 2 short sentences.
-
-STRICT RULES:
-- Each sentence must be short.
-- Maximum total length: 45 words.
-- Do NOT copy long phrases from the document.
-- Do NOT include quotes.
-- Focus only on the document purpose and main obligation.
-- If governing law or exclusions are clearly present, mention at most one of them briefly.
-- Do NOT invent facts.
+Summarize the document in exactly 2 short sentences.
+Keep it concise and factual.
+Do not invent information.
+Do not use bullet points.
 
 Context:
 {context}
+
+Answer:
 """
-        summary = cls._generate(prompt=prompt, max_new_tokens=60)
+        summary = cls._generate(prompt=prompt, max_new_tokens=80)
 
         if summary == "NOT_FOUND":
             return "Summary could not be generated."
@@ -231,7 +180,7 @@ Answer:
         if answer.strip().lower() in {"do not guess", "answer:", "[]"}:
             return "I could not find the answer in the provided document context."
 
-        return answer
+        return answer.strip()
 
     @classmethod
     def extract_structured_analysis(cls, context: str) -> dict[str, Any]:
@@ -247,51 +196,47 @@ Answer:
             or "nda" in lower
         ):
             document_type = "NDA"
-        elif "appointment" in text.lower() or "employment" in text.lower():
+        elif "appointment" in lower or "employment" in lower:
             document_type = "Employment Agreement"
-
         elif "confidential" in lower and "disclosure" in lower:
             document_type = "NDA"
         else:
             document_type = "Legal Agreement"
 
-        # 2. Strong rule-based extraction
+        # 2. Rule-based extraction first
         parties = []
         effective_date = ""
         governing_law = ""
         term = ""
         return_or_destruction_of_materials = ""
 
-        # Better company extraction for invention assignment agreements
-        if not parties:
-            # Company pattern
-            company_match = re.search(
-                r"([A-Z][A-Za-z0-9\s&]+ (?:Private Limited|Ltd|LLC|Inc))", text
-            )
+        company_match = re.search(
+            r"([A-Z][A-Za-z0-9&.,\s]+?(?:Private Limited|Ltd|LLC|Inc))",
+            text,
+        )
+        if company_match:
+            parties.append(company_match.group(1).strip())
 
-            if company_match:
-                parties.append(company_match.group(1).strip())
+        name_match = re.search(
+            r"(?:Mr\.|Ms\.|Mrs\.|Dr\.)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)",
+            text,
+        )
+        if name_match:
+            candidate_name = cls._normalize_scalar(name_match.group(1))
+            if candidate_name and candidate_name not in parties:
+                parties.append(candidate_name)
 
-            # Person name (simple heuristic)
-            name_match = re.search(r"To,\s*\n\s*([A-Z][a-z]+\s+[A-Z][a-z]+)", text)
-
-            if name_match:
-                parties.append(name_match.group(1).strip())
-
-        # Intern detection
         if '"Intern"' in text or '("Intern")' in text or "intern" in lower:
             parties.append("Intern")
 
-        # NDA fallback roles
         if not parties:
             if "disclosing party" in lower:
                 parties.append("Disclosing Party")
             if "receiving party" in lower:
                 parties.append("Receiving Party")
 
-        # Effective date
         date_match = re.search(
-            r"(effective date|dated|entered into as of|made and entered into as of)\s*[:\-]?\s*([A-Za-z0-9,\/\-\s]+)",
+            r"(effective date|dated|entered into as of|made and entered into as of|commences on)\s*[:\-]?\s*([A-Za-z0-9,\/\-\s]+)",
             text,
             re.IGNORECASE,
         )
@@ -300,25 +245,24 @@ Answer:
             if candidate and "mm/dd" not in candidate.lower():
                 effective_date = candidate
 
-        # Governing law
+                effective_date = re.sub(r"\s*,\s*", ", ", effective_date)
+
         law_match = re.search(
-            r"governed by the laws of\s+([A-Za-z\s]+)",
+            r"(governed by|laws of|jurisdiction of)\s+([A-Za-z\s,]+)",
             text,
             re.IGNORECASE,
         )
         if law_match:
             governing_law = cls._normalize_scalar(law_match.group(1))
 
-        # Term / survival
         term_match = re.search(
-            r"(term|survive|survival).{0,120}",
+            r"(period of|term of|duration of).{0,80}",
             text,
             re.IGNORECASE,
         )
         if term_match:
             term = cls._normalize_scalar(term_match.group(0))
 
-        # Return / destruction
         return_match = re.search(
             r"(return|destroy).{0,180}(materials|information|documents)",
             text,
@@ -329,16 +273,15 @@ Answer:
                 return_match.group(0)
             )
 
-        # 3. LLM fallback for document-specific enrichment
+        # 3. Mistral structured fallback
         prompt = f"""
 You are a legal document extraction system.
 
-Extract structured information from the document.
-
-Return ONLY valid JSON. Do NOT include any explanation, markdown, list, or extra text.
+Return only valid JSON.
+Do not include markdown.
+Do not include explanation text.
 
 Use this exact JSON structure:
-
 {{
   "document_type": "",
   "parties": [],
@@ -351,30 +294,17 @@ Use this exact JSON structure:
 
 Rules:
 - document_type must be one of: NDA, Invention Assignment Agreement, Employment Agreement, Legal Agreement
-- parties must be a JSON list of short names only
-- effective_date must be a short date string if clearly present, otherwise ""
-- governing_law must be a short jurisdiction string if clearly present, otherwise ""
-- term must be short and specific, otherwise ""
-- assignment_scope must be short and specific, otherwise ""
-- work_product_ip must be short and specific, otherwise ""
-- If a field is missing, return "" or []
-- Output must start with {{ and end with }}
-- Do not copy long passages
-- Do not return a Python list
-- Do not return prose
+- parties must be a JSON array of short names only
+- if a field is missing, return "" or []
+- do not return a Python list
+- do not return prose before or after JSON
 
 Document:
 \"\"\"{text}\"\"\"
 """
-
-        raw = cls._generate(prompt=prompt, max_new_tokens=260)
-        print("RAW LLM:", raw)
-
+        raw = cls._generate(prompt=prompt, max_new_tokens=220)
         parsed = safe_parse_json(raw)
         parsed = parsed if isinstance(parsed, dict) else {}
-
-        if not parsed:
-            parsed = {}
 
         assignment_scope = cls._normalize_scalar(
             str(parsed.get("assignment_scope", ""))
@@ -392,20 +322,21 @@ Document:
 
         if not work_product_ip:
             ip_match = re.search(
-                r"(company intellectual property.{0,220}|inventions?.{0,220}|work product.{0,220})",
+                r"(company intellectual property.{0,220}|inventions?.{0,220}|work product.{0,220}|intellectual property.{0,220})",
                 text,
                 re.IGNORECASE,
             )
             if ip_match:
                 work_product_ip = cls._normalize_scalar(ip_match.group(0))
 
-        # Optional override only if LLM returns something usable
         llm_document_type = cls._normalize_scalar(str(parsed.get("document_type", "")))
-        if llm_document_type in {"NDA", "Invention Assignment Agreement", "Other"}:
-            if llm_document_type == "Other":
-                document_type = "Legal Agreement"
-            else:
-                document_type = llm_document_type
+        if llm_document_type in {
+            "NDA",
+            "Invention Assignment Agreement",
+            "Employment Agreement",
+            "Legal Agreement",
+        }:
+            document_type = llm_document_type
 
         llm_parties = parsed.get("parties", [])
         if isinstance(llm_parties, list) and llm_parties:
@@ -429,31 +360,17 @@ Document:
         if llm_term:
             term = llm_term
 
-        # --------- FALLBACK: Work Product / IP (RULE-BASED) ---------
-        if not work_product_ip:
-            ip_match = re.search(
-                r"(inventions?.{0,120}|intellectual property.{0,120}|work product.{0,120})",
-                text,
-                re.IGNORECASE,
-            )
-            if ip_match:
-                work_product_ip = cls._normalize_scalar(ip_match.group(0))
-
-        # 4. Rule-based risk detection
+        # 4. Generic risk detection
         risks = []
 
         if not parties:
             risks.append("Parties are not clearly identified.")
-
         if not effective_date:
             risks.append("Effective date is not clearly identified.")
-
         if not governing_law:
             risks.append("Governing law is not clearly identified.")
-
         if not term:
             risks.append("Term or duration is not clearly identified.")
-
         if "termination" not in lower and "terminate" not in lower:
             risks.append("Termination terms are not clearly identified.")
 
@@ -511,7 +428,6 @@ Document:
                 )
 
         formatted_risks = []
-
         for r in list(dict.fromkeys(risks))[:6]:
             severity = "low"
 
@@ -527,31 +443,29 @@ Document:
             ):
                 severity = "high"
 
-            formatted_risks.append({"title": r, "description": r, "severity": severity})
+            formatted_risks.append(
+                {
+                    "title": r,
+                    "description": r,
+                    "severity": severity,
+                }
+            )
 
         clauses = []
-
         text_lower = lower
 
         if "confidential" in text_lower:
             clauses.append("Confidentiality")
-
         if "termination" in text_lower:
             clauses.append("Termination")
-
         if "payment" in text_lower or "salary" in text_lower:
             clauses.append("Compensation")
-
         if "law" in text_lower or "jurisdiction" in text_lower:
             clauses.append("Governing Law")
-
         if "liability" in text_lower:
             clauses.append("Liability")
-
         if "agreement" in text_lower and len(clauses) == 0:
             clauses.append("General Terms")
-
-        # fallback (important)
         if not clauses:
             clauses = ["General Clause"]
 
