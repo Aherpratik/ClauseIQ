@@ -1,81 +1,127 @@
 # ClauseIQ
 
-ClauseIQ is a document intelligence system that extracts structured insights from PDFs and enables grounded question answering using local LLMs.
+ClauseIQ is a full-stack document intelligence system that analyzes legal and business documents using retrieval-augmented generation (RAG) and a locally hosted large language model.
+
+It allows users to upload documents, extract key information, identify risks, and ask grounded questions with supporting evidence.
 
 ---
 
-##  Why ClauseIQ?
+## Overview
 
-Legal and business documents are often long, unstructured, and difficult to analyze manually.
+ClauseIQ processes documents end-to-end:
 
-ClauseIQ demonstrates how modern GenAI systems can:
-- Transform raw documents into structured insights
-- Enable grounded, explainable question answering
-- Reduce manual review effort in legal/compliance workflows
+- Extracts text from uploaded PDFs
+- Breaks content into semantic chunks
+- Generates embeddings for similarity search
+- Retrieves relevant context using FAISS
+- Uses a local LLM (Mistral via Ollama) to generate structured insights and answers
 
-This project simulates a real-world document intelligence system used in enterprise environments.
-
-##  Features
-
-### Document Processing
-- Upload PDF documents via API or UI
-- Extract structured, page-wise text using PyMuPDF
-- Smart chunking with overlap for better semantic understanding
-
-### AI-Powered Analysis
-- Automatic document summarization
-- Clause extraction and categorization
-- Risk identification (high / medium insights)
-- Key field detection from legal and business documents
-
-### Semantic Search
-- Embedding-based retrieval using Sentence Transformers
-- FAISS-powered vector search
-- Relevant chunk retrieval for grounded responses
-
-### Ask AI (RAG-based QA)
-- Context-aware question answering over documents
-- Uses retrieved chunks for grounded answers
-- Reduces hallucination with constrained prompting
-
-### Interactive Frontend (React + Tailwind)
-- Workspace-style UI (similar to real SaaS tools)
-- Document viewer with page rendering
-- Analysis panel with tabs:
-  - Overview
-  - Key Fields
-  - Clauses
-  - Risks
-  - Ask AI
-  - Search
-- Real-time API integration (no mock data)
+The system is designed to provide **traceable and explainable outputs**, rather than generic AI responses.
 
 ---
 
-##  Architecture
+## Features
+
+- **Document Upload & Parsing**
+  - PDF ingestion with page-level extraction
+
+- **Structured Analysis**
+  - Document type detection
+  - Party identification
+  - Effective date extraction
+  - Governing law and term detection
+
+- **Clause & Risk Identification**
+  - Highlights important clauses (confidentiality, termination, etc.)
+  - Flags missing or unclear legal elements
+
+- **Ask AI (RAG-based Q&A)**
+  - Answers questions using retrieved document context
+  - Returns supporting evidence with page references and confidence scores
+
+- **Local LLM Integration**
+  - Uses Mistral via Ollama (no external API calls)
+  - Ensures data privacy and zero inference cost
+
+---
+
+## Tech Stack
+
+**Backend**
+- Python, FastAPI
+- SentenceTransformers (`all-MiniLM-L6-v2`)
+- FAISS (vector search)
+- PyMuPDF (PDF parsing)
+- Ollama (local LLM runtime with Mistral)
+
+**Frontend**
+- React (Vite)
+- Tailwind CSS
+
+---
+
+## System Architecture
 
 ```text
-Upload → Extract → Chunk → Embed → Index (FAISS)
-                ↓
-           Retrieve → LLM → Insights 
+PDF → Text Extraction → Chunking → Embeddings → FAISS Index
+          ↓
+    Context Retrieval
+          ↓
+    Mistral (via Ollama)
+          ↓
+  Structured Analysis with Grounded Answers and Evidence
 
 ```
 
+## Setup Instructions
 
-##  Tech Stack
+### 1. Clone the repository
 
-### Backend
-- Python
-- FastAPI
-- PyMuPDF (PDF parsing)
-- Sentence Transformers (embeddings)
-- FAISS (vector search)
-- HuggingFace (FLAN-T5)
+```bash
+git clone https://github.com/Aherpratik/ClauseIQ.git
+cd ClauseIQ
+```
 
-### Frontend
-- React (Vite)
-- Tailwind CSS
-- Axios (API communication)
+### Backend Setup
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Install and Run Ollama (Mistral)
+
+```bash
+brew install ollama
+brew services start ollama
+ollama run mistral
+```
+### Start Backend Server
+```bash
+uvicorn app.main:app --reload
+```
+
+- Backend runs at:
+```
+
+http://127.0.0.1:8000
+```
+
+### Frontend Setup
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+- Frontend runs at:
+
+```
+http://localhost:5173
+```
 
 ---
 
@@ -96,74 +142,53 @@ GET /api/v1/extract/{document_id}
 GET /api/v1/summary/{document_id}
 
 
-### Semantic Search
-
-POST /api/v1/search/{document_id}
-
-
-### Question Answering
-
-POST /api/v1/qa/{document_id}
-
-
-### Analysis (Clauses / Risks / Fields)
+### Structured analysis
 
 GET /api/v1/analyze/{document_id}
 
 
----
+### Ask question with evidence
 
-##  Core Components
-
-### Chunking Engine
-- Overlapping chunk strategy
-- Sentence-safe splitting
-- Metadata tracking (page, offsets, length)
-
-### Vector Pipeline
-- Embeddings via `all-MiniLM-L6-v2`
-- FAISS `IndexFlatIP` for similarity search
-- Persistent index + metadata storage
-
-### LLM Pipeline
-- FLAN-T5 for:
-  - Summarization
-  - Question Answering
-  - Structured insights
-- Prompt-engineered for grounded responses
+POST /api/v1/ask
 
 ---
 
-## Getting Started
+## Example Capabilities
+- Identify parties in an agreement
+- Extract effective dates and terms
+- Detect missing governing law clauses
+- Answer questions like:
+  - "Who are the parties?"
+  - "What is the termination clause?"
+  - "What risks exist in this document?"
 
-### Backend
-```bash
-cd backend
-python -m venv clauseiq
-source clauseiq/bin/activate   # Mac/Linux
-pip install -r requirements.txt
-uvicorn backend.app.main:app --reload
-```
+---
 
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
+## Design Approach
 
+The system combines:
 
-##  Example Use Case
+- Rule-based extraction for reliability
+- Vector search (FAISS) for semantic retrieval
+- LLM reasoning (Mistral) for flexible understanding
 
-Upload an NDA →  
-- Extract clauses (Confidentiality, Termination, etc.)
-- Identify potential risks  
-- Ask: *“What is considered confidential information?”*  
-- Get grounded answers with source references
+A validation layer ensures outputs are normalized and consistent before being returned to the UI.
+---
+
+## Limitations
+- Performance depends on document formatting quality
+- Chunk-level retrieval may miss very fine-grained details
+- Highlighting and exact span matching are approximate
+
+## Future Improvements
+- Better clause classification using fine-tuned models
+- Improved highlighting and traceability
+- Multi-document comparison
+- Support for additional document formats
 
 ## Screenshots
 
-### DashBoard
+### Dashboard
 ![DashBoard](./assets/dashboard.png)
 
 ### Document Workspace
@@ -181,15 +206,3 @@ Upload an NDA →
 
 ![Analysis](./assets/analysis3.png)
 
-## Notes
-- Uses local models (no paid APIs)
-- Answers are grounded in document context
-- Works best with structured PDFs
-
-##  Future Improvements
-
-- Real risk scoring using LLM outputs
-- Multi-document comparison
-- Document status auto-refresh (processing → ready)
-- Authentication and user dashboards
-- Cloud deployment (Docker + AWS/GCP)
