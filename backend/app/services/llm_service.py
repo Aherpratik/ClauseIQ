@@ -127,6 +127,59 @@ class LLMService:
 
         return cleaned[:5]
 
+    @staticmethod
+    def _normalize_date(date_str: str) -> str:
+        if not date_str:
+            return ""
+
+        from datetime import datetime
+
+        cleaned = LLMService._clean_text(date_str)
+
+        if "mm/dd" in cleaned.lower() or "yy" in cleaned.lower():
+            return ""
+
+        for fmt in ("%m/%d/%y", "%m/%d/%Y", "%B %d, %Y", "%b %d, %Y"):
+            try:
+                dt = datetime.strptime(cleaned, fmt)
+                return dt.strftime("%B %d, %Y")
+            except Exception:
+                continue
+
+        return cleaned
+
+    @classmethod
+    def _validate_analysis(cls, data: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(data, dict):
+            return {}
+
+        data["document_type"] = cls._normalize_scalar(
+            str(data.get("document_type", ""))
+        )
+
+        parties = data.get("parties", [])
+        if not isinstance(parties, list):
+            parties = []
+        data["parties"] = cls._dedupe_parties(
+            [cls._normalize_scalar(str(p)) for p in parties if str(p).strip()]
+        )
+
+        data["effective_date"] = cls._normalize_date(
+            str(data.get("effective_date", ""))
+        )
+        data["governing_law"] = cls._normalize_scalar(
+            str(data.get("governing_law", ""))
+        )
+        data["term"] = cls._normalize_scalar(str(data.get("term", "")))
+        data["assignment_scope"] = cls._normalize_scalar(
+            str(data.get("assignment_scope", ""))
+        )
+        data["work_product_ip"] = cls._normalize_scalar(
+            str(data.get("work_product_ip", ""))
+        )
+
+        return data
+
     @classmethod
     def summarize_document(cls, context: str) -> str:
         prompt = f"""
@@ -248,7 +301,7 @@ Answer:
                 effective_date = re.sub(r"\s*,\s*", ", ", effective_date)
 
         law_match = re.search(
-            r"(governed by|laws of|jurisdiction of)\s+([A-Za-z\s,]+)",
+            r"(?:governed by|laws of|jurisdiction of)\s+([A-Za-z\s,]+)",
             text,
             re.IGNORECASE,
         )
@@ -305,6 +358,7 @@ Document:
         raw = cls._generate(prompt=prompt, max_new_tokens=220)
         parsed = safe_parse_json(raw)
         parsed = parsed if isinstance(parsed, dict) else {}
+        parsed = cls._validate_analysis(parsed)
 
         assignment_scope = cls._normalize_scalar(
             str(parsed.get("assignment_scope", ""))
@@ -346,9 +400,8 @@ Document:
             if normalized_llm_parties:
                 parties = normalized_llm_parties
 
-        llm_effective_date = cls._normalize_scalar(
-            str(parsed.get("effective_date", ""))
-        )
+        llm_effective_date = cls._normalize_date(str(parsed.get("effective_date", "")))
+
         if llm_effective_date and "mm/dd" not in llm_effective_date.lower():
             effective_date = llm_effective_date
 
