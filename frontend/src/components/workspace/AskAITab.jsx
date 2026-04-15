@@ -72,19 +72,26 @@ export default function AskAITab({ documentId }) {
             </h4>
 
             <div className="mt-2 space-y-3">
-              {sources.map((source, index) => (
-                <div
-                  key={index}
-                  className="rounded-md border border-slate-200 bg-slate-50 p-3"
-                >
-                  <p className="text-xs font-medium text-slate-500">
-                    Page {source.page_number} • Score {source.score?.toFixed?.(3) ?? source.score}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-700">
-                    {source.text}
-                  </p>
+            {sources.map((source, index) => (
+              <div
+                key={index}
+                className="rounded-lg border border-slate-200 bg-slate-50 p-3 hover:bg-slate-100 transition"
+              >
+                <div className="flex justify-between text-xs text-slate-500 mb-1">
+                  <span> Page {source.page_number}</span>
+                  <span>
+                     Confidence{" "}
+                    {source.score
+                      ? `${(source.score * 100).toFixed(1)}%`
+                      : "N/A"}
+                  </span>
                 </div>
-              ))}
+
+                <p className="text-sm text-slate-700 line-clamp-3">
+                  {source.text}
+                </p>
+              </div>
+            ))}
             </div>
           </div>
         )}
