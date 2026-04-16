@@ -63,13 +63,18 @@ The system is designed to provide **traceable and explainable outputs**, rather 
 ## System Architecture
 
 ```text
+
+Document Processing Pipeline
 PDF → Text Extraction → Chunking → Embeddings → FAISS Index
-          ↓
-    Context Retrieval
-          ↓
-    Mistral (via Ollama)
-          ↓
-  Structured Analysis with Grounded Answers and Evidence
+
+Inference Pipeline:
+                          Analysis Request
+                                   ↓
+                          Context Retrieval
+                                   ↓
+                         Mistral (via Ollama)
+                                   ↓
+               Structured Analysis with Grounded Answers & Evidence
 
 ```
 
