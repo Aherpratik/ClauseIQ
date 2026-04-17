@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: clauseiq-backend
+    ports:
+      - "8000:8000"
+    environment:
+      OLLAMA_API_URL: http://host.docker.internal:11434/api/generate
+    volumes:
+      - ./backend/app/storage:/app/app/storage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: clauseiq-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
