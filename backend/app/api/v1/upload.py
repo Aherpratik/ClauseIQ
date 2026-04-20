@@ -3,21 +3,21 @@ from pathlib import Path
 import shutil
 import uuid
 
-from backend.app.models.responses import (
+from app.models.responses import (
     UploadedDocumentResponse,
     ExtractedDocumentResponse,
 )
-from backend.app.services.pdf_services import PDFService
-from backend.app.services.chunk_service import ChunkService
-from backend.app.services.embedding_service import EmbeddingService
-from backend.app.services.vector_service import VectorService
-from backend.app.models.responses import QARequest, QAResponse, QASource
-from backend.app.services.llm_service import LLMService
+from app.services.pdf_services import PDFService
+from app.services.chunk_service import ChunkService
+from app.services.embedding_service import EmbeddingService
+from app.services.vector_service import VectorService
+from app.models.responses import QARequest, QAResponse, QASource
+from app.services.llm_service import LLMService
 
 
 router = APIRouter()
 
-UPLOAD_DIR = Path("backend/app/storage/uploads")
+UPLOAD_DIR = Path("/app/app/storage/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 

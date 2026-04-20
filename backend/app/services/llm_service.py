@@ -1,7 +1,7 @@
 import json
 import re
 from typing import Any
-
+import os
 import requests
 
 
@@ -23,7 +23,7 @@ def safe_parse_json(raw: str):
 
 
 class LLMService:
-    _base_url = "http://localhost:11434/api/generate"
+    _base_url = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
     _model_name = "mistral"
 
     @classmethod

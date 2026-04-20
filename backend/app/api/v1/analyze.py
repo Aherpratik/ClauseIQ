@@ -2,10 +2,10 @@ from fastapi import APIRouter, HTTPException
 import json
 import re
 
-from backend.app.models.responses import AnalyzeResponse, QASource
-from backend.app.services.embedding_service import EmbeddingService
-from backend.app.services.llm_service import LLMService
-from backend.app.services.vector_service import VectorService
+from app.models.responses import AnalyzeResponse, QASource
+from app.services.embedding_service import EmbeddingService
+from app.services.llm_service import LLMService
+from app.services.vector_service import VectorService
 
 router = APIRouter()
 

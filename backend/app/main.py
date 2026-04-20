@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.api.v1 import upload, analyze, documents
+from app.api.v1 import upload, analyze, documents
 
 
 app = FastAPI(title="ClauseIQ API")

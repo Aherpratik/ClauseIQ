@@ -4,7 +4,7 @@ import os
 
 router = APIRouter()
 
-UPLOAD_DIR = Path("backend/app/storage/uploads")
+UPLOAD_DIR = Path("/app/app/storage/uploads")
 
 
 @router.get("/documents")

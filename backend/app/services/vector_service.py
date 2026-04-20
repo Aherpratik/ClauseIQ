@@ -6,7 +6,7 @@ import numpy as np
 
 
 class VectorService:
-    INDEX_DIR = Path("backend/app/storage/indexes")
+    INDEX_DIR = Path("/app/app/storage/indexes")
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
     @classmethod
