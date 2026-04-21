@@ -1,6 +1,6 @@
 # ClauseIQ
 
-ClauseIQ is a full-stack document intelligence system that analyzes legal and business documents using retrieval-augmented generation (RAG) and a locally hosted large language model.
+ClauseIQ is an end-to-end legal document intelligence system that analyzes legal and business documents using retrieval-augmented generation (RAG) and a locally hosted large language model.
 
 It allows users to upload documents, extract key information, identify risks, and ask grounded questions with supporting evidence.
 
@@ -23,7 +23,9 @@ The system is designed to provide **traceable and explainable outputs**, rather 
 ## Features
 
 - **Document Upload & Parsing**
-  - PDF ingestion with page-level extraction
+  - Upload PDF Documents
+  - Page-level text extraction using PyMuPDF
+  - Smart chunking with overlap
 
 - **Structured Analysis**
   - Document type detection
@@ -68,9 +70,13 @@ Document Processing Pipeline
 PDF → Text Extraction → Chunking → Embeddings → FAISS Index
 
 Inference Pipeline:
-                          Analysis Request
+                                Query
                                    ↓
-                          Context Retrieval
+                              Embedding
+                                   ↓
+                            FAISS Retrieval
+                                   ↓
+                                Context 
                                    ↓
                          Mistral (via Ollama)
                                    ↓
@@ -80,12 +86,19 @@ Inference Pipeline:
 
 ## Setup Instructions
 
-### 1. Clone the repository
+###  Clone the repository
 
 ```bash
 git clone https://github.com/Aherpratik/ClauseIQ.git
 cd ClauseIQ
 ```
+### Docker setup
+Run full system using Docker:
+```bash
+docker compose up --build
+```
+ - Frontend: http://localhost:5173
+ - Backend: http://localhost:8000
 
 ### Backend Setup
 
@@ -108,12 +121,6 @@ ollama run mistral
 uvicorn app.main:app --reload
 ```
 
-- Backend runs at:
-```
-
-http://127.0.0.1:8000
-```
-
 ### Frontend Setup
 
 ```bash
@@ -122,11 +129,6 @@ npm install
 npm run dev
 ```
 
-- Frontend runs at:
-
-```
-http://localhost:5173
-```
 
 ---
 
@@ -154,7 +156,7 @@ GET /api/v1/analyze/{document_id}
 
 ### Ask question with evidence
 
-POST /api/v1/ask
+POST /api/v1/qa/{id}
 
 ---
 
@@ -169,13 +171,20 @@ POST /api/v1/ask
 
 ---
 
-## Design Approach
+## Design Approach and decisions
 
 The system combines:
 
 - Rule-based extraction for reliability
 - Vector search (FAISS) for semantic retrieval
 - LLM reasoning (Mistral) for flexible understanding
+
+Design Decisions:
+
+- FAISS over managed vector DB → fast + free + local
+- MiniLM embeddings → efficient & lightweight
+- Local LLM (Ollama) → no API cost, privacy first
+- Chunking with overlap → better retrieval accuracy
 
 A validation layer ensures outputs are normalized and consistent before being returned to the UI.
 ---
